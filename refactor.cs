@@ -24,7 +24,7 @@ namespace LogTagOnline.API.Controllers
             return Request.CreateResponse(HttpStatusCode.OK);
         }
 
-        // Rename the method name DeleteUser1 => HandleDeleteUser
+        // Rename the method DeleteUser1 => HandleDeleteUser
         // Seems the method is used in this class only, change public => private
         // Actually delete the user from database
         private bool HandleDeleteUser(int userId, int teamId)
@@ -50,8 +50,8 @@ namespace LogTagOnline.API.Controllers
             var teamOwner = DataAccess.UserTeams.FirstOrDefault(x => x.TeamID == teamId && x.AccountTypeID == (int)UserAccountType.Owner);
 
             // Move the statements up
-            // Rename the variable name allToRemove => allToRemoveLocationUserAlert, allToAdd => allToAddLocationUserAlert
-            // This chunk of code about LocationUserAlert is similar to the code about ShipmentUserAlert, should extract a common private method to avoid duplicating
+            // Rename the variable allToRemove => allToRemoveLocationUserAlert, allToAdd => allToAddLocationUserAlert
+            // This chunk of code about LocationUserAlert is similar to the code about ShipmentUserAlert, should extract a common private method to avoid duplicate
             var allToRemoveLocationUserAlert = new List<LocationUserAlert>();
             var allToAddLocationUserAlert = new List<LocationUserAlert>();
             var locationUserAlerts = (from userAlert in DataAccess.LocationUserAlerts
