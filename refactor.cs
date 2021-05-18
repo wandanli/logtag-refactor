@@ -17,13 +17,15 @@ namespace LogTagOnline.API.Controllers
             if (loginUser.ID != userId && loginUser.UserTeams.First().AccountTypeID == 3)
                 throw new AuthenticationException(LogTagConstants.UserNotAuthorized);
 
-            var userIsPrimaryCoordinator = DeleteUser1(userId, teamId);
+            var userIsPrimaryCoordinator = HandleDeleteUser(userId, teamId);
             if (userIsPrimaryCoordinator == true) { return Request.CreateResponse(HttpStatusCode.Accepted, userIsPrimaryCoordinator); }
 
             return Request.CreateResponse(HttpStatusCode.OK);
         }
 
-        public bool DeleteUser1(int userId, int teamId)
+        // Rename the method name DeleteUser1 => HandleDeleteUser
+        // Seems the method is used in this class only, change public => private
+        private bool HandleDeleteUser(int userId, int teamId)
         {
             var userIsPrimaryCoordinator = false;
 
@@ -33,7 +35,24 @@ namespace LogTagOnline.API.Controllers
                                   where areaItem.TeamID == teamId && userArea.UserAccountID == userId
                                   select userArea).FirstOrDefault();
             var areaId = userAreaEntity != null ? (int?)userAreaEntity.AreaID : null;
-            var userAlerts = (from userAlert in DataAccess.LocationUserAlerts
+
+            // Move the statements up
+            var user = DataAccess.UserAccounts.First(x => x.ID == userId);
+            if (user.DistributorID != null)
+            {
+                var userteams = DataAccess.UserTeams.Where(x => x.UserAccountID == user.ID && x.Team.UserAccount.DistributorID == null && x.AccountTypeID == 4);
+                DataAccess.UserTeams.RemoveRange(userteams);
+            }
+
+            // Move the statement up
+            var teamOwner = DataAccess.UserTeams.FirstOrDefault(x => x.TeamID == teamId && x.AccountTypeID == (int)UserAccountType.Owner);
+
+            // Move the statements up
+            // Rename the variable name allToRemove => allToRemoveLocationUserAlert, allToAdd => allToAddLocationUserAlert
+            // This chunk of code about LocationUserAlert is similar with the code about ShipmentUserAlert, should use a private method to avoid duplicating
+            var allToRemoveLocationUserAlert = new List<LocationUserAlert>();
+            var allToAddLocationUserAlert = new List<LocationUserAlert>();
+            var locationUserAlerts = (from userAlert in DataAccess.LocationUserAlerts
                               join location in DataAccess.Locations on userAlert.LocationID equals location.ID
                               where location.TeamID == teamId && userAlert.UserAccountID == userId
                               select new
@@ -41,23 +60,15 @@ namespace LogTagOnline.API.Controllers
                                   UserAlert = userAlert,
                                   Location = location
                               }).ToList();
-            var teamOwner = DataAccess.UserTeams.FirstOrDefault(x => x.TeamID == teamId && x.AccountTypeID == (int)UserAccountType.Owner);
-            var allToRemove = new List<LocationUserAlert>();
-            var allToAdd = new List<LocationUserAlert>();
-
-            var user = DataAccess.UserAccounts.First(x => x.ID == userId);
-            if (user.DistributorID != null)
-            {
-                var userteams = DataAccess.UserTeams.Where(x => x.UserAccountID == user.ID && x.Team.UserAccount.DistributorID == null && x.AccountTypeID == 4);
-                DataAccess.UserTeams.RemoveRange(userteams);
-            }
-            foreach (var alert in userAlerts)
+           
+            foreach (var alert in locationUserAlerts)
             {
                 if (teamOwner != null)
                 {
                     var locationAlert = DataAccess.LocationUserAlerts.Where(x => x.LocationID == alert.Location.ID).OrderBy(x => x.NotificationRole).ToList();
-                    allToRemove.AddRange(locationAlert);
+                    allToRemoveLocationUserAlert.AddRange(locationAlert);
                     var newLocationAlert = new List<LocationUserAlert>();
+
                     foreach (var oldAlert in locationAlert)
                     {
                         if (oldAlert.NotificationRole == (int)NotificationRoleEnum.Primary)
@@ -79,6 +90,32 @@ namespace LogTagOnline.API.Controllers
                         };
                         newLocationAlert.Add(newAlert);
                     }
+                    // can change to switch statements
+                    /* switch (newLocationAlert.Count)
+                    {
+                        case 1:
+                            newLocationAlert[0].UserAccountID = teamOwner.UserAccountID;
+                            break;
+                        case 2:
+                            if (newLocationAlert[0].UserAccountID == userId)
+                            {
+                                newLocationAlert[0].UserAccountID = newLocationAlert[1].UserAccountID;
+                            }
+                            newLocationAlert.RemoveAt(1);
+                            break;
+                        case 3:
+                            if (newLocationAlert[0].UserAccountID == userId)
+                            {
+                            newLocationAlert[0].UserAccountID = newLocationAlert[1].UserAccountID;
+                            newLocationAlert[1].UserAccountID = newLocationAlert[2].UserAccountID;
+                            }
+                            else if (newLocationAlert[1].UserAccountID == userId)
+                            {
+                            newLocationAlert[1].UserAccountID = newLocationAlert[2].UserAccountID;
+                            }
+                            newLocationAlert.RemoveAt(2);
+                            break;
+                    } */
                     if (newLocationAlert.Count == 1)
                     {
                         newLocationAlert[0].UserAccountID = teamOwner.UserAccountID;
@@ -88,7 +125,6 @@ namespace LogTagOnline.API.Controllers
                         if (newLocationAlert[0].UserAccountID == userId)
                         {
                             newLocationAlert[0].UserAccountID = newLocationAlert[1].UserAccountID;
-
                         }
                         newLocationAlert.RemoveAt(1);
                     }
@@ -98,7 +134,6 @@ namespace LogTagOnline.API.Controllers
                         {
                             newLocationAlert[0].UserAccountID = newLocationAlert[1].UserAccountID;
                             newLocationAlert[1].UserAccountID = newLocationAlert[2].UserAccountID;
-
                         }
                         else if (newLocationAlert[1].UserAccountID == userId)
                         {
@@ -106,10 +141,11 @@ namespace LogTagOnline.API.Controllers
                         }
                         newLocationAlert.RemoveAt(2);
                     }
-                    allToAdd.AddRange(newLocationAlert);
+                    allToAddLocationUserAlert.AddRange(newLocationAlert);
                 }
             }
 
+            // code about ShipmentUserAlert
             var allToRemoveShipmentUserAlert = new List<ShipmentUserAlert>();
             var allToAddShipmentUserAlert = new List<ShipmentUserAlert>();
             var shipmentUserAlerts = (from userAlert in DataAccess.ShipmentUserAlerts
@@ -181,10 +217,12 @@ namespace LogTagOnline.API.Controllers
                     allToAddShipmentUserAlert.AddRange(newShipmentAlert);
                 }
             }
-            DataAccess.LocationUserAlerts.RemoveRange(allToRemove);
+
+
+            DataAccess.LocationUserAlerts.RemoveRange(allToRemoveLocationUserAlert);
             DataAccess.ShipmentUserAlerts.RemoveRange(allToRemoveShipmentUserAlert);
             DataAccess.SaveChanges();
-            DataAccess.LocationUserAlerts.AddRange(allToAdd);
+            DataAccess.LocationUserAlerts.AddRange(allToAddLocationUserAlert);
             DataAccess.ShipmentUserAlerts.AddRange(allToAddShipmentUserAlert);
             DataAccess.SaveChanges();
 
