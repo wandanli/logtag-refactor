@@ -26,6 +26,7 @@ namespace LogTagOnline.API.Controllers
 
         // Rename the method name DeleteUser1 => HandleDeleteUser
         // Seems the method is used in this class only, change public => private
+        // Actually delete the user from database
         private bool HandleDeleteUser(int userId, int teamId)
         {
             var userIsPrimaryCoordinator = false;
@@ -219,7 +220,7 @@ namespace LogTagOnline.API.Controllers
                 }
             }
 
-
+            // Update the relationship tables
             DataAccess.LocationUserAlerts.RemoveRange(allToRemoveLocationUserAlert);
             DataAccess.ShipmentUserAlerts.RemoveRange(allToRemoveShipmentUserAlert);
             DataAccess.SaveChanges();
@@ -227,6 +228,7 @@ namespace LogTagOnline.API.Controllers
             DataAccess.ShipmentUserAlerts.AddRange(allToAddShipmentUserAlert);
             DataAccess.SaveChanges();
 
+            // Delete the user from database    
             DataAccess.DeleteTeamUser(userId, teamId, areaId);
 
             return userIsPrimaryCoordinator;
