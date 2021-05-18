@@ -11,6 +11,7 @@ namespace LogTagOnline.API.Controllers
         [SwaggerResponse(HttpStatusCode.OK)]
         [HttpGet]
         [LogTagExceptionFilter]
+
         public HttpResponseMessage DeleteUser(int userId, int teamId)
         {
             var loginUser = UserTeamWithTypeCheck(teamId);
@@ -49,7 +50,7 @@ namespace LogTagOnline.API.Controllers
 
             // Move the statements up
             // Rename the variable name allToRemove => allToRemoveLocationUserAlert, allToAdd => allToAddLocationUserAlert
-            // This chunk of code about LocationUserAlert is similar with the code about ShipmentUserAlert, should use a private method to avoid duplicating
+            // This chunk of code about LocationUserAlert is similar to the code about ShipmentUserAlert, should extract a common private method to avoid duplicating
             var allToRemoveLocationUserAlert = new List<LocationUserAlert>();
             var allToAddLocationUserAlert = new List<LocationUserAlert>();
             var locationUserAlerts = (from userAlert in DataAccess.LocationUserAlerts
@@ -145,7 +146,7 @@ namespace LogTagOnline.API.Controllers
                 }
             }
 
-            // code about ShipmentUserAlert
+            // Code about ShipmentUserAlert
             var allToRemoveShipmentUserAlert = new List<ShipmentUserAlert>();
             var allToAddShipmentUserAlert = new List<ShipmentUserAlert>();
             var shipmentUserAlerts = (from userAlert in DataAccess.ShipmentUserAlerts
